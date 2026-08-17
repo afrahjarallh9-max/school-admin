@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10a58e"><meta name="apple-mobile-web-app-capable" content="yes">
+<title>لوحة الإدارة المدرسية</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef7f5;color:#263238;font-family:Tahoma,Arial,sans-serif}
+header{background:linear-gradient(135deg,#10aa92,#078f7a);color:#fff;padding:18px;display:flex;justify-content:space-between;align-items:center}
+main{max-width:1100px;margin:auto;padding:18px}.card{background:#fff;border-radius:16px;padding:18px;margin-bottom:15px;box-shadow:0 4px 15px #00000012}
+h1,h2{margin-top:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.stat{text-align:center}.num{font-size:30px;font-weight:bold;color:#078f7a}
+button{border:0;border-radius:10px;padding:10px 14px;cursor:pointer}.primary{background:#10a58e;color:#fff}.light{background:#eaf6f3;color:#087e6d}.danger{background:#fff0f0;color:#b22}
+input,select,textarea{width:100%;padding:11px;border:1px solid #dce7e5;border-radius:10px;margin:5px 0 12px}
+label{font-size:13px}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.tabs{display:flex;gap:7px;overflow:auto;margin-bottom:15px}.tabs button{white-space:nowrap;background:#fff}.tabs .active{background:#10a58e;color:#fff}
+.item{border:1px solid #e5eeec;border-radius:12px;padding:12px;margin:8px 0}.badge{display:inline-block;padding:4px 7px;border-radius:7px;font-size:11px;background:#fff4d9;color:#946500}
+.ok{background:#e8f8ef;color:#187744}.bad{background:#fff0f0;color:#a22}.hidden{display:none}.login{max-width:430px;margin:70px auto}.muted{color:#899594;font-size:12px}
+@media(max-width:650px){.row{grid-template-columns:1fr}main{padding:10px}header{padding:13px}}
+</style></head>
+<body>
+<header><strong>🎓 لوحة متابعة أعمال الإدارة المدرسية</strong><button class="light" id="logout">خروج</button></header>
+<main>
+<section id="login" class="card login">
+<h2>تسجيل الدخول</h2><label>اسم المستخدم</label><input id="user" value="admin">
+<label>كلمة المرور</label><input id="pass" type="password" value="123456">
+<button class="primary" onclick="login()">دخول</button>
+<p class="muted">الحساب التجريبي للمديرة: admin / 123456</p>
+</section>
+
+<section id="app" class="hidden">
+<div class="tabs">
+<button class="active" onclick="tab('home',this)">الرئيسية</button>
+<button onclick="tab('send',this)">إضافة وإرسال</button>
+<button onclick="tab('employees',this)">الموظفات</button>
+<button onclick="tab('inbox',this)">المعاملات</button>
+</div>
+
+<div id="home" class="view">
+<div class="grid">
+<div class="card stat"><div>📤 الصادر</div><div class="num" id="sout">0</div></div>
+<div class="card stat"><div>📥 الوارد</div><div class="num" id="sin">0</div></div>
+<div class="card stat"><div>📢 النشرات</div><div class="num" id="snews">0</div></div>
+<div class="card stat"><div>⏳ بانتظار الاعتماد</div><div class="num" id="spend">0</div></div>
+</div>
+<div class="card"><h2>آخر المعاملات</h2><div id="recent"></div></div>
+</div>
+
+<div id="send" class="view hidden">
+<div class="card"><h2>إضافة معاملة وإرسالها</h2>
+<form id="recordForm">
+<div class="row"><div><label>القسم</label><select id="type"><option>الصادر</option><option>الوارد</option><option>النشرات</option></select></div>
+<div><label>التاريخ</label><input id="date" type="date"></div></div>
+<label>العنوان</label><input id="title" required placeholder="عنوان التعميم أو الخطاب">
+<label>الملاحظات</label><textarea id="notes" placeholder="ملاحظات"></textarea>
+<label>📎 المرفق</label><input id="file" type="file">
+<label>👩‍💼 اختيار الموظفات</label><div id="checks"></div>
+<br><button class="primary">حفظ وإرسال للموظفات</button></form></div>
+</div>
+
+<div id="employees" class="view hidden">
+<div class="card"><h2>إضافة موظفة</h2><div class="row"><input id="ename" placeholder="اسم الموظفة"><input id="euser" placeholder="اسم المستخدم"></div>
+<input id="epass" placeholder="كلمة المرور"><button class="primary" onclick="addEmployee()">إضافة</button></div>
+<div class="card"><h2>الموظفات</h2><div id="elist"></div></div>
+</div>
+
+<div id="inbox" class="view hidden"><div class="card"><h2>المعاملات المرسلة</h2><div id="records"></div></div></div>
+</section>
+</main>
+<script>
+let token=localStorage.getItem("school_token"), me=null, employees=[];
+const $=id=>document.getElementById(id);
+async function api(url,opt={}){opt.headers=opt.headers||{};if(token)opt.headers.Authorization="Bearer "+token;let r=await fetch(url,opt);let d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"حدث خطأ");return d}
+async function login(){try{let d=await api("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:$("user").value,password:$("pass").value})});token=d.token;localStorage.setItem("school_token",token);start()}catch(e){alert(e.message)}}
+async function start(){try{me=await api("/api/me");$("login").classList.add("hidden");$("app").classList.remove("hidden");$("date").value=new Date().toISOString().slice(0,10);if(me.role==="admin"){employees=await api("/api/employees");renderEmployees();renderChecks()}else{document.querySelectorAll(".tabs button").forEach((b,i)=>b.classList.toggle("hidden",i!==0&&i!==3));tab("inbox",document.querySelectorAll(".tabs button")[3])}loadRecords()}catch(e){localStorage.removeItem("school_token");token=null}}
+function tab(id,btn){document.querySelectorAll(".view").forEach(x=>x.classList.add("hidden"));$(id).classList.remove("hidden");document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");if(id==="inbox")loadRecords()}
+function renderChecks(){$("checks").innerHTML=employees.map(e=>`<label style="display:block;margin:7px"><input type="checkbox" value="${e.id}"> ${e.name}</label>`).join("")||'<span class="muted">أضيفي الموظفات أولاً</span>'}
+function renderEmployees(){$("elist").innerHTML=employees.map(e=>`<div class="item">${e.name} <span class="muted">(${e.username})</span></div>`).join("")}
+async function addEmployee(){try{await api("/api/employees",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:$("ename").value,username:$("euser").value,password:$("epass").value})});$("ename").value=$("euser").value=$("epass").value="";employees=await api("/api/employees");renderEmployees();renderChecks();alert("تمت إضافة الموظفة")}catch(e){alert(e.message)}}
+$("recordForm").onsubmit=async e=>{e.preventDefault();try{let fd=new FormData();fd.append("type",$("type").value);fd.append("title",$("title").value);fd.append("date",$("date").value);fd.append("notes",$("notes").value);fd.append("recipients",JSON.stringify([...document.querySelectorAll("#checks input:checked")].map(x=>+x.value)));if($("file").files[0])fd.append("attachment",$("file").files[0]);await api("/api/records",{method:"POST",body:fd});alert("تم الحفظ والإرسال");e.target.reset();$("date").value=new Date().toISOString().slice(0,10);loadRecords()}catch(e){alert(e.message)}};
+async function loadRecords(){try{let rs=await api("/api/records");if(me.role==="admin"){let c={الصادر:0,الوارد:0,النشرات:0,p:0};rs.forEach(r=>{if(c[r.type]!==undefined)c[r.type]++;c.p+=(r.recipients||0)-(r.approved||0)});$("sout").textContent=c.الصادر;$("sin").textContent=c.الوارد;$("snews").textContent=c.النشرات;$("spend").textContent=c.p;$("recent").innerHTML=rs.slice(0,8).map(r=>adminItem(r)).join("");$("records").innerHTML=rs.map(r=>adminItem(r)).join("")}else{$("records").innerHTML=rs.map(r=>employeeItem(r)).join("")}}catch(e){alert(e.message)}}
+function adminItem(r){let total=r.recipients||0,ap=r.approved||0,rd=r.read_count||0;return `<div class="item"><b>${r.type}: ${r.title}</b><div class="muted">${r.date||""} ${r.attachment_name?" • 📎 "+r.attachment_name:""}</div><div>👥 ${total} موظفة • 👁️ ${rd} اطلعن • ✅ ${ap} اعتمدن</div><button class="light" onclick="recipients(${r.id})">متابعة الموظفات</button></div>`}
+function employeeItem(r){let st=r.status==="approved"?"معتمد":r.status==="rejected"?"مرفوض":r.status==="read"?"تم الاطلاع":"بانتظار الاطلاع";return `<div class="item"><b>${r.type}: ${r.title}</b><div class="muted">${r.date||""}${r.attachment_name?" • 📎 "+r.attachment_name:""}</div><span class="badge ${r.status==="approved"?"ok":r.status==="rejected"?"bad":""}">${st}</span><br><br>${r.attachment_name?`<button class="light" onclick="openFile(${r.id})">فتح المرفق</button>`:""} <button class="primary" onclick="respond(${r.id},'approved')">✓ اعتماد</button> <button class="light" onclick="respond(${r.id},'read')">تم الاطلاع</button> <button class="danger" onclick="respond(${r.id},'rejected')">رفض</button></div>`}
+async function openFile(id){location.href="/api/records/"+id+"/file"}
+async function respond(id,status){try{await api("/api/records/"+id+"/respond",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({status})});loadRecords()}catch(e){alert(e.message)}}
+async function recipients(id){let r=await api("/api/records/"+id+"/recipients");alert(r.map(x=>`${x.name}: ${x.status==="approved"?"✓ معتمد":x.status==="read"?"👁️ اطلعت":"⏳ لم تطلع بعد"}`).join("\n")||"لا توجد موظفات")}
+$("logout").onclick=()=>{localStorage.removeItem("school_token");location.reload()};if(token)start();
+</script></body></html>
