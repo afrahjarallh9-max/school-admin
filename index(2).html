@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0fa58f">
+<title>لوحة أعمال الإدارة المدرسية</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#f4f8f8;color:#263238}
+button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.hidden{display:none!important}
+.top{background:linear-gradient(135deg,#13a98f,#0a8d83);color:#fff;padding:18px 20px 14px;position:sticky;top:0;z-index:5}
+.top h1{margin:0 0 6px;font-size:22px}.top p{margin:0;opacity:.9;font-size:13px}
+.wrap{max-width:1100px;margin:auto;padding:18px}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.nav button{background:#fff;padding:11px 15px;border-radius:12px;color:#555;box-shadow:0 2px 10px #00000010}
+.nav button.active{background:#10a28d;color:#fff}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{background:#fff;border-radius:18px;padding:18px;box-shadow:0 3px 15px #0000000b;margin-bottom:16px}
+.stat{font-size:30px;font-weight:bold;color:#078f7c;margin-top:7px}.muted{color:#7d898d;font-size:13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{margin-bottom:12px}.field label{display:block;font-size:13px;margin-bottom:6px;font-weight:bold}
+input,select,textarea{width:100%;border:1px solid #d8e2e2;border-radius:10px;padding:11px;background:#fff}textarea{min-height:90px}
+.primary{background:#0da18d;color:#fff;padding:11px 18px;border-radius:11px}.secondary{background:#eef6f5;color:#087d70;padding:10px 15px;border-radius:10px}
+.danger{background:#fff0f0;color:#c33;padding:9px 13px;border-radius:9px}.pill{display:inline-block;padding:5px 9px;border-radius:20px;background:#eef7f5;color:#087d70;font-size:12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid #edf1f1}.actions{display:flex;gap:7px;flex-wrap:wrap}
+.login{min-height:100vh;display:grid;place-items:center;padding:20px;background:linear-gradient(135deg,#e9f8f5,#f6fbfb)}
+.login .box{width:min(430px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 10px 35px #00000015}.logo{width:65px;height:65px;border-radius:18px;background:#10a28d;color:#fff;display:grid;place-items:center;font-size:30px;margin:auto auto 15px}
+.file{padding:10px;border:1px dashed #b9cecb;border-radius:10px;background:#f9fcfc}
+table{width:100%;border-collapse:collapse}th,td{text-align:right;padding:10px;border-bottom:1px solid #edf1f1;font-size:13px}th{background:#f7faf9}
+@media(max-width:700px){.cards{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.wrap{padding:12px}.top h1{font-size:19px}.card{padding:14px}}
+@media(max-width:430px){.cards{grid-template-columns:1fr}.nav button{flex:1}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const app=document.getElementById('app');
+let token=localStorage.getItem('school_token'), me=JSON.parse(localStorage.getItem('school_user')||'null');
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+async function api(url,opt={}){opt.headers=opt.headers||{};if(token)opt.headers.Authorization='Bearer '+token;const r=await fetch(url,opt);if(!r.ok){let x={};try{x=await r.json()}catch{};throw Error(x.error||'حدث خطأ');}return r.json()}
+function login(){
+ app.innerHTML=`<div class="login"><div class="box"><div class="logo">🎓</div><h2 style="text-align:center;margin:0 0 8px">لوحة أعمال الإدارة المدرسية</h2><p class="muted" style="text-align:center">تسجيل الدخول</p>
+ <div class="field"><label>اسم المستخدم</label><input id="u" autocomplete="username"></div>
+ <div class="field"><label>كلمة المرور</label><input id="p" type="password" autocomplete="current-password"></div>
+ <button class="primary" style="width:100%" onclick="doLogin()">دخول</button><p id="err" style="color:#c33"></p>
+ </div></div>`;
+}
+async function doLogin(){try{const x=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u.value,password:p.value})});token=x.token;me=x.user;localStorage.setItem('school_token',token);localStorage.setItem('school_user',JSON.stringify(me));render()}catch(e){err.textContent=e.message}}
+function render(){if(!token||!me)return login();app.innerHTML=`<div class="top"><div style="max-width:1100px;margin:auto"><h1>لوحة متابعة أعمال الإدارة المدرسية</h1><p>${esc(me.name)} — ${me.role==='admin'?'المديرة':'الموظفة'}</p></div></div><div class="wrap"><div class="nav">
+<button id="home" onclick="home()">🏠 الرئيسية</button>${me.role==='admin'?'<button id="records" onclick="records()">📂 المعاملات</button><button onclick="newRecord()">➕ إضافة معاملة</button><button onclick="employees()">👩🏻‍💼 الموظفات</button>':''}<button onclick="records()">${me.role==='admin'?'📊 المتابعة':'📬 معاملاتي'}</button><button onclick="logout()">خروج</button></div><div id="view"></div></div>`;home()}
+async function home(){let rs=await api('/api/records');let total=rs.length, pending=rs.filter(x=>x.status==='pending').length, approved=rs.filter(x=>x.status==='approved').length;view.innerHTML=`<div class="cards"><div class="card"><div class="muted">إجمالي المعاملات</div><div class="stat">${total}</div></div>${me.role==='employee'?`<div class="card"><div class="muted">بانتظار الاعتماد</div><div class="stat">${pending}</div></div><div class="card"><div class="muted">تم الاعتماد</div><div class="stat">${approved}</div></div>`:`<div class="card"><div class="muted">الصادر والوارد والنشرات</div><div class="stat">${total}</div></div><div class="card"><div class="muted">يمكنك إضافة معاملة وإرسالها للموظفات</div></div>`}</div><div class="card"><h3>آخر المعاملات</h3><div id="latest">${rs.slice(0,5).map(item).join('')||'<p class="muted">لا توجد معاملات حاليًا</p>'}</div></div>`}
+function item(r){let st=r.status==='approved'?'تم الاعتماد':r.status==='read'?'تم الاطلاع':r.status==='rejected'?'مرفوض': 'بانتظار الاطلاع';return `<div class="row"><div><b>${esc(r.title)}</b><div class="muted">${esc(r.type)} ${r.date?'— '+esc(r.date):''}</div></div><div>${me.role==='employee'?`<span class="pill">${st}</span>`:`<span class="pill">${r.approved||0}/${r.recipients||0} اعتماد</span>`}</div></div>`}
+async function records(){let rs=await api('/api/records');view.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2>${me.role==='admin'?'المعاملات والمتابعة':'المعاملات المرسلة لي'}</h2>${me.role==='admin'?'<button class="primary" onclick="newRecord()">إضافة معاملة</button>':''}</div>${rs.map(r=>`<div class="row"><div><b>${esc(r.title)}</b><div class="muted">${esc(r.type)} ${r.date?'— '+esc(r.date):''}</div></div><div class="actions">${r.attachment_path?`<button class="secondary" onclick="fileOpen(${r.id})">📎 المرفق</button>`:''}${me.role==='employee'?`<button class="secondary" onclick="respond(${r.id},'read')">👁️ اطلعت</button><button class="primary" onclick="respond(${r.id},'approved')">✅ اعتماد</button><button class="danger" onclick="respond(${r.id},'rejected')">❌ رفض</button>`:`<button class="secondary" onclick="track(${r.id})">متابعة الموظفات</button>`}</div></div>`).join('')||'<p class="muted">لا توجد معاملات</p>'}</div>`}
+async function employees(){let es=await api('/api/employees');view.innerHTML=`<div class="card"><h2>الموظفات</h2><div class="grid"><div><div class="field"><label>اسم الموظفة</label><input id="en"></div><div class="field"><label>اسم المستخدم</label><input id="eu"></div><div class="field"><label>كلمة المرور</label><input id="ep" value="123456"></div><button class="primary" onclick="addEmployee()">إضافة موظفة</button></div><div>${es.map(e=>`<div class="row"><div><b>${esc(e.name)}</b><div class="muted">${esc(e.username)}</div></div><span class="pill">نشطة</span></div>`).join('')}</div></div></div>`}
+async function addEmployee(){try{await api('/api/employees',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:en.value,username:eu.value,password:ep.value})});employees()}catch(e){alert(e.message)}}
+async function newRecord(){let es=await api('/api/employees');view.innerHTML=`<div class="card"><h2>إضافة معاملة وإرسالها</h2><div class="grid"><div><div class="field"><label>القسم</label><select id="type"><option>الصادر</option><option>الوارد</option><option>النشرات</option></select></div><div class="field"><label>عنوان المعاملة</label><input id="title"></div><div class="field"><label>التاريخ</label><input id="date" type="date"></div><div class="field"><label>ملاحظات</label><textarea id="notes"></textarea></div><div class="field"><label>المرفق</label><input class="file" id="attachment" type="file"></div></div><div><label><b>إرسال إلى الموظفات</b></label>${es.map(e=>`<label class="row" style="justify-content:flex-start"><input style="width:auto" type="checkbox" name="rec" value="${e.id}"> ${esc(e.name)}</label>`).join('')||'<p class="muted">أضيفي الموظفات أولًا</p>'}</div></div><button class="primary" onclick="saveRecord()">📤 إرسال المعاملة</button></div>`}
+async function saveRecord(){let f=new FormData();f.append('type',type.value);f.append('title',title.value);f.append('date',date.value);f.append('notes',notes.value);f.append('recipients',JSON.stringify([...document.querySelectorAll('input[name=rec]:checked')].map(x=>+x.value)));if(attachment.files[0])f.append('attachment',attachment.files[0]);try{await api('/api/records',{method:'POST',body:f});alert('تم إرسال المعاملة بنجاح');records()}catch(e){alert(e.message)}}
+async function respond(id,status){try{await api('/api/records/'+id+'/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});records()}catch(e){alert(e.message)}}
+async function track(id){let x=await api('/api/records/'+id+'/recipients');view.innerHTML=`<div class="card"><button class="secondary" onclick="records()">← رجوع</button><h2>متابعة الاطلاع والاعتماد</h2><table><tr><th>الموظفة</th><th>الحالة</th><th>التاريخ</th></tr>${x.map(e=>`<tr><td>${esc(e.name)}</td><td>${e.status==='approved'?'✅ تم الاعتماد':e.status==='read'?'👁️ تم الاطلاع':e.status==='rejected'?'❌ مرفوض':'⏳ لم تطلع بعد'}</td><td>${esc(e.responded_at||'-')}</td></tr>`).join('')}</table></div>`}
+function fileOpen(id){window.open('/api/records/'+id+'/file','_blank')}
+function logout(){localStorage.clear();token=null;me=null;login()}
+render();
+</script>
+</body></html>
